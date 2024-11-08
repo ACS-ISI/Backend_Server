@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import select
+import json
 
 app = Flask(__name__)
 
@@ -15,6 +17,8 @@ class Task(db.Model):
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(200), nullable=True)
     completed = db.Column(db.Boolean, default=False)
+    def as_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 with app.app_context():
     db.create_all()
@@ -27,22 +31,31 @@ def index():
 @app.route('/tasks', methods=['POST'])
 def add_task():
     """Adaugă un task nou în baza de date."""
-    # Logica pentru a adăuga un task nou va fi aici
-    pass
+    # Logica pentru a adăuga un task nou va fi aici    
+    task = Task(
+        title=request.json["title"],
+        description=request.json["description"]
+    )
+    db.session.add(task)
+    db.session.commit()
+    return jsonify({"status": True})
 
 # TODO 2: Endpoint pentru a obține toate task-urile (GET)
 @app.route('/tasks', methods=['GET'])
 def get_all_tasks():
     """Obține toate task-urile din baza de date."""
     # Logica pentru a returna toate task-urile va fi aici
-    pass
+    tasks = db.session.execute(select(Task.id, Task.title, Task.description, Task.completed)).all()
+    tasks_dict = [task._asdict() for task in tasks]
+    return jsonify({"status": True, "data": tasks_dict})
 
 # TODO 3: Endpoint pentru a obține un task după id (GET)
 @app.route('/tasks/<int:task_id>', methods=['GET'])
 def get_task(task_id):
     """Obține un task pe baza ID-ului."""
     # Logica pentru a obține un task după id va fi aici
-    pass
+    task = db.session.execute(select(Task.id, Task.title, Task.description, Task.completed).where(Task.id==task_id)).one()._asdict()
+    return jsonify({"status": True, "data": task})
 
 # TODO 4: Endpoint pentru a actualiza un task (PUT)
 @app.route('/tasks/<int:task_id>', methods=['PUT'])
