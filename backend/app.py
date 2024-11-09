@@ -1,14 +1,20 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import select
+import sqlite3
 from flask_cors import CORS
 import json
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes by default
 
+DATABASE = 'tasks.db'
+
 # Configurare bază de date in-memory
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+
+# Configurare bază de date locală
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + DATABASE
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -25,8 +31,13 @@ class Task(db.Model):
 with app.app_context():
     db.create_all()
 
+def get_db_connection():
+    conn = sqlite3.connect("instance/" + DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 @app.route('/')
-def index():
+def index(): 
     return "Lab6 Backend Server"
 
 # TODO 1: Endpoint pentru a adăuga un task nou (POST)
@@ -51,6 +62,14 @@ def get_all_tasks():
     tasks_dict = [task._asdict() for task in tasks]
     return jsonify({"status": True, "data": tasks_dict})
 
+@app.route('/tasks/select', methods=['GET'])
+def get_all_tasks_select():
+    """Obține toate task-urile din baza de date. (folosing sintaxa nativă SQL)"""
+    with get_db_connection() as conn:
+        tasks = conn.execute("SELECT * FROM Task").fetchall()
+        tasks_list = [dict(task) for task in tasks]
+    return jsonify({"status": True, "data": tasks_list})
+
 # TODO 3: Endpoint pentru a obține un task după id (GET)
 @app.route('/tasks/<int:task_id>', methods=['GET'])
 def get_task(task_id):
@@ -58,6 +77,16 @@ def get_task(task_id):
     # Logica pentru a obține un task după id va fi aici
     task = db.session.execute(select(Task.id, Task.title, Task.description, Task.completed).where(Task.id==task_id)).one()._asdict()
     return jsonify({"status": True, "data": task})
+
+@app.route('/tasks/select/<int:task_id>', methods=['GET'])
+def get_task_select(task_id):
+    """Obține un task pe baza ID-ului."""
+    with get_db_connection() as conn:
+        task = conn.execute("SELECT * FROM Task WHERE id = ?", (task_id,)).fetchone()
+        if task:
+            return jsonify({"status": True, "data": dict(task)})
+        else:
+            return jsonify({"status": False, "error": "Task not found"}), 404
 
 # TODO 4: Endpoint pentru a actualiza un task (PUT)
 @app.route('/tasks/<int:task_id>', methods=['PUT'])
