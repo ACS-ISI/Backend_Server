@@ -12,8 +12,9 @@ function init() {
 
 // Fetch and display tasks
 function loadTasks() {
-    fetch(API_URL).then(response => {
-        let res = response.json();
+    fetch(API_URL).then(async (response) => {
+        let res = await response.json();
+        console.log(res);
         displayTasks(res.data)
     }).catch(error => {
         console.error('Error loading tasks:', error);
